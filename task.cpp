@@ -119,8 +119,8 @@ std::string dfa2re(DFA &d) {
                 trans_tmp.source=iter.first;
                 trans_tmp.symbols=it;
                 trans_tmp.destination=d.get_trans(iter.first,it);
+                trans_table.push_back(trans_tmp);
             }
-            trans_table.push_back(trans_tmp);
         }
     }
     for(auto it:states_map){
@@ -133,20 +133,28 @@ std::string dfa2re(DFA &d) {
         }
     }
     // удалить мертвые состояния?
+    std::vector<trans> trans_table_loop;
 l:    do{
         for(auto it=trans_table.begin();it != trans_table.end();++it){
             std::cout <<"it: "<<it->source<< ' ' << it->symbols<< ' ' << it->destination << '\n';
+            if(it->source == it->destination){
+                trans_table_loop.push_back(*it);
+                trans_table.erase(it);
+            }
             for(auto iter = it+1;iter!=trans_table.end();++iter){
                 std::cout <<"iter: "<<iter->source<< ' ' << iter->symbols<< ' ' << iter->destination << '\n';
                 if((iter->source == it->source) && (iter->destination==it->destination) && (iter->symbols!=it->symbols)){
                     it->symbols.push_back('|');
                     it->symbols += iter->symbols;
+                    trans_table.erase(iter);
                     goto l;
                 }
+
             }
             std::cout << '\n';
         }
 
     }while(false);
+
   return my_table.to_string();
 }
