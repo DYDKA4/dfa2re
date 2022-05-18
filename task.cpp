@@ -137,10 +137,6 @@ std::string dfa2re(DFA &d) {
 l:    do{
         for(auto it=trans_table.begin();it != trans_table.end();++it){
             std::cout <<"it: "<<it->source<< ' ' << it->symbols<< ' ' << it->destination << '\n';
-            if(it->source == it->destination){
-                trans_table_loop.push_back(*it);
-                trans_table.erase(it);
-            }
             for(auto iter = it+1;iter!=trans_table.end();++iter){
                 std::cout <<"iter: "<<iter->source<< ' ' << iter->symbols<< ' ' << iter->destination << '\n';
                 if((iter->source == it->source) && (iter->destination==it->destination) && (iter->symbols!=it->symbols)){
@@ -153,8 +149,32 @@ l:    do{
             }
             std::cout << '\n';
         }
-
     }while(false);
+
+l2:    do {
+    for (auto it = trans_table.begin(); it != trans_table.end(); ++it) {
+        std::cout << "it: " << it->source << ' ' << it->symbols << ' ' << it->destination << '\n';
+        if (it->source == it->destination) {
+            trans_table_loop.push_back(*it);
+            trans_table.erase(it);
+            goto l2;
+        }
+    }
+}while(false);
+//    std::vector<trans> trans_table_outgoing;
+//    std::vector<trans> trans_table_incoming;
+//l3:    do {
+//        std::string source,destination;
+//        for (auto it = trans_table.begin(); it != trans_table.end(); ++it) {
+//            std::cout << "it: " << it->source << ' ' << it->symbols << ' ' << it->destination << '\n';
+//            if (it->source != "start" && it->source !="end") {
+//                trans_table_loop.push_back(*it);
+//                trans_table.erase(it);
+//                goto l3;
+//            }
+//        }
+//    }while(false);
+
 
   return my_table.to_string();
 }
