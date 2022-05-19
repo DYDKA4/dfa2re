@@ -11,91 +11,27 @@ struct trans{
     std::string destination;
 };
 
-std::vector<std::string> spliter_str(std::string str){
-    std::string delimiter = "\n";
-    std::vector<std::string> result;
-    size_t pos = 0;
-    std::string token;
-    while ((pos = str.find(delimiter)) != std::string::npos) {
-        token = str.substr(0, pos);
-//        std::cout << token << std::endl;
-        result.push_back(token);
-        str.erase(0, pos + delimiter.length());
-    }
-//    std::cout << str << std::endl;
-    return result;
-}
-std::string replace_str(std::string str,const std::string& find, const std::string& change){
-    size_t index = 0;
-    while (true) {
-        /* Locate the substring to replace. */
-        index = str.find(find, index);
-        if (index == std::string::npos) break;
-        /* Make the replacement. */
-        str.replace(index, find.size(), change);
-        /* Advance index forward so the next iteration doesn't pick it up as well. */
-        index += change.size();
-    }
-    return str;
-}
-std::vector<std::string> get_state(std::vector<std::string> str, std::string alphabet){
-    std::vector<std::string> states;
-    for(auto iter:str){
-        bool is_in = false;
-        for(char it:alphabet){
-            size_t pos = 0;
-            pos = iter.find(it);
-            if (pos != std::string::npos){
-                is_in = true;
-            }
-        }
-        if(is_in){
-            break;
-        }
-        states.push_back(iter);
-    }
-    return states;
-}
-
-std::map<std::string,bool> form_states(std::vector<std::string> states) {
+std::map<std::string,bool> form_states(std::vector<std::string> states,DFA &d) {
     std::map<std::string,bool> state_map;
     for(auto it:states){
-        it.erase(it.begin());
-        size_t pos = 0;
-        if(it[0] == '['){
-            it.erase(it.begin());
-            pos = it.find(']');
-            it.erase(it.begin()+pos,it.end());
+        if(d.is_final(it))
             state_map[it] = true;
-        }
         else{
-            pos = it.find(']');
-            it.erase(it.begin()+pos,it.end());
             state_map[it] = false;
         }
     }
     return state_map;
 }
-std::map<std::string,int> form_trans_map(std::vector<std::string> trans,std::map<std::string,bool> state_map){
+std::map<std::string,int> form_trans_map(std::vector<struct trans> trans,std::map<std::string,bool> state_map){
     std::map<std::string,int> map;
     for(auto it:state_map){
         map[it.first] = 0;
     }
     for(auto it:trans){
-        it.erase(it.begin());
-        size_t pos = 0;
-        pos = it.find(']');
-        std::string copy = it;
-        it.erase(it.begin()+pos,it.end());
-        map[it]++;
-        pos = copy.find('[');
-        copy.erase(copy.begin(),copy.begin()+pos+1);
-        pos = copy.find(']');
-        copy.erase(copy.begin()+pos,copy.end());
-        map[copy]++;
-
-
-
+        if(it.source!="start" && it.destination!="end") {
+            map[it.source]++;
+            map[it.destination]++;
+        }
     }
     return map;
 }
@@ -118,22 +54,28 @@ bool finish(std::vector<struct trans> trans_table){
     }
     return true;
 }
+std::string get_finish(std::vector<struct trans> trans_table){
+    for(auto it:trans_table){
+        if(it.source=="start" && it.destination == "end")
+            return it.symbols;
+    }
+    return "";
+}
 std::string dfa2re(DFA &d) {
-    std::string str = d.to_string();
-    auto split_str = spliter_str(str);
-    std::string alphabet = split_str[0];
-    split_str.erase(split_str.begin());
-    auto states = get_state(split_str,alphabet);
+    auto set_states = d.get_states();
+    std::vector<std::string> states;
+    for(auto it:set_states){
+        states.push_back(it);
+    }
     for(auto it:states){
         std::cout << it << "\n";
     }
     std::cout << "\n";
-    split_str.erase(split_str.begin(),split_str.begin()+states.size());
-    for(auto it:split_str){
-        std::cout << it << "\n";
-    }
-    auto states_map = form_states(states);
-    auto trans_map = form_trans_map(split_str,states_map);
+
+    std::cout << "Start FILL STATES_MAP\n";
+    auto states_map = form_states(states, d);
+    std::cout << "FILL STATES_MAP\n";
+
 
     auto ALP = d.get_alphabet();
     ALP.insert('@');
@@ -151,6 +93,7 @@ std::string dfa2re(DFA &d) {
     trans_tmp.destination=states_map.begin()->first;
     trans_table.push_back(trans_tmp);
     my_table.create_state("end", true);
+    std::cout << "FILL TRANSTABLE\n";
     for(auto it:d.get_alphabet().to_string()){
         for(auto iter:states_map){
             if(d.has_trans(iter.first,it)){
@@ -162,6 +105,7 @@ std::string dfa2re(DFA &d) {
             }
         }
     }
+
     for(auto it:states_map){
         if(it.second){
             trans_tmp.source=it.first;
@@ -170,10 +114,15 @@ std::string dfa2re(DFA &d) {
             trans_table.push_back(trans_tmp);
         }
     }
+    auto trans_map = form_trans_map(trans_table,states_map);
+
+
+
+
     // удалить мертвые состояния?
     std::vector<trans> trans_table_loop;
-
     std::vector<std::string> order;
+    std::cout << "MAIN\n";
     while(!trans_map.empty()){
         int min = INT16_MAX;
         std::string min_str;
@@ -198,7 +147,9 @@ std::string dfa2re(DFA &d) {
                 std::cout << "iter: " << iter->source << ' ' << iter->symbols << ' ' << iter->destination << '\n';
                 if ((iter->source == it->source) && (iter->destination == it->destination) &&
                     (iter->symbols != it->symbols)) {
+//                    it->symbols = it->symbols ;
                     it->symbols.push_back('|');
+//                    it->symbols =  it->symbols + "(" + iter->symbols + ")";
                     it->symbols += iter->symbols;
                     it->symbols = "("+it->symbols+")" ;
                     trans_table.erase(iter);
@@ -234,26 +185,40 @@ std::string dfa2re(DFA &d) {
                     it--;
                 }
             }
-            std::string loop_str;
+            std::string loop_str = "";
             for(auto it:trans_loop){
                 if(it.source == deleting){
                     if(loop_str.empty()){
                         loop_str = "("+it.symbols+")*";
                     }
                     else{
-                        loop_str = "("+it.symbols+")*";
-                    }
+                        loop_str += "|("+it.symbols+")*";
+                        loop_str = "(" + loop_str + ")";
+                     }
                 }
             }
+
             for(auto it=trans_incoming.begin();it<trans_incoming.end();++it){
                 for(auto iter=trans_outgoing.begin();iter<trans_outgoing.end();++iter){
                     // где то тут что-то с loop
                     struct trans tmp;
+//                    if((it->source == iter->destination)&&(it->destination==iter->source)){
+//                        tmp.source = tmp.destination = it->source;
+//                        tmp.symbols = it->symbols + iter->symbols;
+//                        trans_table.push_back(tmp);
+//                        it->symbols = "";
+//                        iter->symbols = "";
+//                        flag = true;
+//                    }
                     tmp.source = it->source;
                     tmp.destination = iter->destination;
-                    tmp.symbols = it->symbols;
+                    tmp.symbols = "";
+                    if(it->symbols != "()")
+                        tmp.symbols = it->symbols;
                     tmp.symbols += loop_str;
-                    tmp.symbols+=iter->symbols;
+                    if(iter->symbols != "()")
+                        tmp.symbols+=iter->symbols;
+                    tmp.symbols = "(" + tmp.symbols + ")";
                     trans_table.push_back(tmp);
                     flag = true;
                 }
@@ -262,9 +227,6 @@ std::string dfa2re(DFA &d) {
         }
 //        break;
     }while(finish(trans_table) || flag);
-    for(auto it:trans_table){
-        std::string result = it.symbols;
-        return result;
-        std::cout << "result: " << it.source << ' ' << result << ' ' << it.destination << '\n';
-    }
+
+    return get_finish(trans_table);
 }
