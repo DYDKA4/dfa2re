@@ -176,6 +176,7 @@ std::string dfa2re(DFA &d) {
                     it->symbols += iter->symbols;
                     it->symbols = "("+it->symbols+")" ;
                     trans_table.erase(iter);
+                    iter--;
                     flag = true;
                 }
 
