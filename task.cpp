@@ -197,19 +197,33 @@ std::string dfa2re(DFA &d) {
                      }
                 }
             }
-
+            std::map<std::string,int> map;
+            for(auto it:states_map){
+                map[it.first] = 0;
+            }
+            for(auto it:trans_table){
+                if(it.source!="start") {
+                    map[it.source]++;
+                }
+            }
+            std::vector<std::string> list_to_delete;
+            for(auto it:map){
+                if(it.second == 0 && it.first != "end"){
+                    list_to_delete.push_back(it.first);
+                }
+            }
+            for(auto it:list_to_delete){
+                for(auto iter=trans_table.begin();iter > trans_table.end(); ++iter){
+                    if(iter->source == it || iter->destination == it) {
+                        trans_table.erase(iter);
+                        iter--;
+                    }
+                }
+            }
             for(auto it=trans_incoming.begin();it<trans_incoming.end();++it){
                 for(auto iter=trans_outgoing.begin();iter<trans_outgoing.end();++iter){
                     // где то тут что-то с loop
                     struct trans tmp;
-//                    if((it->source == iter->destination)&&(it->destination==iter->source)){
-//                        tmp.source = tmp.destination = it->source;
-//                        tmp.symbols = it->symbols + iter->symbols;
-//                        trans_table.push_back(tmp);
-//                        it->symbols = "";
-//                        iter->symbols = "";
-//                        flag = true;
-//                    }
                     tmp.source = it->source;
                     tmp.destination = iter->destination;
                     tmp.symbols = "";
