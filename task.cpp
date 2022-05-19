@@ -25,6 +25,19 @@ std::vector<std::string> spliter_str(std::string str){
 //    std::cout << str << std::endl;
     return result;
 }
+std::string replace_str(std::string str,const std::string& find, const std::string& change){
+    size_t index = 0;
+    while (true) {
+        /* Locate the substring to replace. */
+        index = str.find(find, index);
+        if (index == std::string::npos) break;
+        /* Make the replacement. */
+        str.replace(index, find.size(), change);
+        /* Advance index forward so the next iteration doesn't pick it up as well. */
+        index += change.size();
+    }
+    return str;
+}
 std::vector<std::string> get_state(std::vector<std::string> str, std::string alphabet){
     std::vector<std::string> states;
     for(auto iter:str){
@@ -72,13 +85,39 @@ std::map<std::string,int> form_trans_map(std::vector<std::string> trans,std::map
         it.erase(it.begin());
         size_t pos = 0;
         pos = it.find(']');
+        std::string copy = it;
         it.erase(it.begin()+pos,it.end());
         map[it]++;
+        pos = copy.find('[');
+        copy.erase(copy.begin(),copy.begin()+pos+1);
+        pos = copy.find(']');
+        copy.erase(copy.begin()+pos,copy.end());
+        map[copy]++;
+
+
 
     }
     return map;
 }
+std::string get_state_to_delete(std::map<std::string,int> trans_map){
+    int current_min = INT16_MAX;
+    std::string current_min_str;
+    for(auto it:trans_map){
+        if(it.second < current_min && it.second > 0){
+            current_min = it.second;
+            current_min_str = it.first;
+        }
+    }
+    return current_min_str;
+}
 
+bool finish(std::vector<struct trans> trans_table){
+    for(auto it:trans_table){
+        if(it.source=="start" && it.destination == "end")
+            return false;
+    }
+    return true;
+}
 std::string dfa2re(DFA &d) {
     std::string str = d.to_string();
     auto split_str = spliter_str(str);
@@ -108,7 +147,7 @@ std::string dfa2re(DFA &d) {
     }
     my_table.set_trans("start",'@',states_map.begin()->first);
     trans_tmp.source="start";
-    trans_tmp.symbols='@';
+    trans_tmp.symbols="()";
     trans_tmp.destination=states_map.begin()->first;
     trans_table.push_back(trans_tmp);
     my_table.create_state("end", true);
@@ -125,56 +164,107 @@ std::string dfa2re(DFA &d) {
     }
     for(auto it:states_map){
         if(it.second){
-            my_table.set_trans(it.first,'@',"end");
             trans_tmp.source=it.first;
-            trans_tmp.symbols='@';
+            trans_tmp.symbols="()";
             trans_tmp.destination="end";
             trans_table.push_back(trans_tmp);
         }
     }
     // удалить мертвые состояния?
     std::vector<trans> trans_table_loop;
-l:    do{
-        for(auto it=trans_table.begin();it != trans_table.end();++it){
-            std::cout <<"it: "<<it->source<< ' ' << it->symbols<< ' ' << it->destination << '\n';
-            for(auto iter = it+1;iter!=trans_table.end();++iter){
-                std::cout <<"iter: "<<iter->source<< ' ' << iter->symbols<< ' ' << iter->destination << '\n';
-                if((iter->source == it->source) && (iter->destination==it->destination) && (iter->symbols!=it->symbols)){
+
+    std::vector<std::string> order;
+    while(!trans_map.empty()){
+        int min = INT16_MAX;
+        std::string min_str;
+        std::map<std::string , int>::iterator iter;
+        for(auto it=trans_map.begin();it!=trans_map.end();++it){
+            if(min > it->second){
+                min = it->second;
+                min_str = it->first;
+                iter = it;
+            }
+        }
+        order.push_back(min_str);
+        trans_map.erase(iter);
+    }
+    std::vector<struct trans> trans_loop;
+    bool flag;
+    do{
+        flag = false;
+        for (auto it = trans_table.begin(); it < trans_table.end(); ++it) {
+            std::cout << "it: " << it->source << ' ' << it->symbols << ' ' << it->destination << '\n';
+            for (auto iter = it + 1; iter < trans_table.end(); ++iter) {
+                std::cout << "iter: " << iter->source << ' ' << iter->symbols << ' ' << iter->destination << '\n';
+                if ((iter->source == it->source) && (iter->destination == it->destination) &&
+                    (iter->symbols != it->symbols)) {
                     it->symbols.push_back('|');
                     it->symbols += iter->symbols;
+                    it->symbols = "("+it->symbols+")" ;
                     trans_table.erase(iter);
-                    goto l;
+                    flag = true;
                 }
 
             }
             std::cout << '\n';
         }
-    }while(false);
-
-l2:    do {
-    for (auto it = trans_table.begin(); it != trans_table.end(); ++it) {
-        std::cout << "it: " << it->source << ' ' << it->symbols << ' ' << it->destination << '\n';
-        if (it->source == it->destination) {
-            trans_table_loop.push_back(*it);
-            trans_table.erase(it);
-            goto l2;
+        for(auto it=trans_table.begin();it<trans_table.end();++it){
+            if(it->destination==it->source){
+                trans_loop.push_back(*it);
+                trans_table.erase(it);
+                flag = true;
+            }
         }
+        if(!order.empty()) {
+            std::string deleting =order[0];
+            std::vector<struct trans> trans_incoming;
+            std::vector<struct trans> trans_outgoing;
+            for(auto it=trans_table.begin();it<trans_table.end();++it){
+                if(it->destination==deleting){
+                    trans_incoming.push_back(*it);
+                    trans_table.erase(it);
+                    it--;
+                }
+                if(trans_table.empty()){
+                    break;
+                }
+                if(it->source==deleting){
+                    trans_outgoing.push_back(*it);
+                    trans_table.erase(it);
+                    it--;
+                }
+            }
+            std::string loop_str;
+            for(auto it:trans_loop){
+                if(it.source == deleting){
+                    if(loop_str.empty()){
+                        loop_str = "("+it.symbols+")*";
+                    }
+                    else{
+                        loop_str = "("+it.symbols+")*";
+                    }
+                }
+            }
+            for(auto it=trans_incoming.begin();it<trans_incoming.end();++it){
+                for(auto iter=trans_outgoing.begin();iter<trans_outgoing.end();++iter){
+                    // где то тут что-то с loop
+                    struct trans tmp;
+                    tmp.source = it->source;
+                    tmp.destination = iter->destination;
+                    tmp.symbols = it->symbols;
+                    tmp.symbols += loop_str;
+                    tmp.symbols+=iter->symbols;
+                    trans_table.push_back(tmp);
+                    flag = true;
+                }
+            }
+            order.erase(order.begin());
+        }
+//        break;
+    }while(finish(trans_table) || flag);
+    for(auto it:trans_table){
+        std::string result = it.symbols;
+        return result;
+        std::cout << "result: " << it.source << ' ' << result << ' ' << it.destination << '\n';
     }
-}while(false);
-//    std::vector<trans> trans_table_outgoing;
-//    std::vector<trans> trans_table_incoming;
-//l3:    do {
-//        std::string source,destination;
-//        for (auto it = trans_table.begin(); it != trans_table.end(); ++it) {
-//            std::cout << "it: " << it->source << ' ' << it->symbols << ' ' << it->destination << '\n';
-//            if (it->source != "start" && it->source !="end") {
-//                trans_table_loop.push_back(*it);
-//                trans_table.erase(it);
-//                goto l3;
-//            }
-//        }
-//    }while(false);
-
-
-  return my_table.to_string();
 }
