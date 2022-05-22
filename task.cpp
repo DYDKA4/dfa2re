@@ -242,7 +242,8 @@ std::string dfa2re(DFA &d) {
             order.erase(order.begin());
         }
 //        break;
+    if(trans_table.empty())
+        break;
     }while(finish(trans_table) || flag);
-
     return get_finish(trans_table);
 }
