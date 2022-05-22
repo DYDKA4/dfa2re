@@ -138,29 +138,26 @@ std::string dfa2re(DFA &d) {
         trans_map.erase(iter);
     }
     std::vector<struct trans> trans_loop;
-//    std::map<std::string,int> map;
-//    for(auto it:states_map){
-//        map[it.first] = 0;
-//    }
-//    for(auto it:trans_table){
-//        if(it.source!="start") {
-//            map[it.source]++;
-//        }
-//    }
-//    std::vector<std::string> list_to_delete;
-//    for(auto it:map){
-//        if(it.second == 0 && it.first != "end"){
-//            list_to_delete.push_back(it.first);
-//        }
-//    }
-//    for(auto it:list_to_delete){
-//        for(auto iter=trans_table.begin();iter > trans_table.end(); ++iter){
-//            if(iter->source == it || iter->destination == it) {
-//                trans_table.erase(iter);
-//                iter--;
-//            }
-//        }
-//    }
+    std::set<std::string> tmp_check;
+    for(auto it = states.begin(); it!=states.end(); ++it){
+        for(auto iter:trans_table){
+            if(iter.destination == *it && iter.source!= *it){
+                tmp_check.insert(*it);
+                break;
+            }
+        }
+    }
+    tmp_check.insert("start");
+    tmp_check.insert("end");
+    std::vector<trans> ts_copy;
+        for(auto iter = trans_table.begin(); iter != trans_table.end();++iter){
+            bool first = tmp_check.find(iter->source) != tmp_check.end();
+            bool second = tmp_check.find(iter->destination) != tmp_check.end();
+            if(first && second){
+                ts_copy.push_back(*iter);
+            }
+        }
+    trans_table = ts_copy;
     bool flag;
     do{
         flag = false;
