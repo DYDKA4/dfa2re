@@ -217,7 +217,7 @@ std::string dfa2re(DFA &d) {
                     }
                     else{
                         loop_str += "|("+it.symbols+")*";
-                        loop_str = "(" + loop_str + ")";
+                        loop_str = "(" + loop_str + ")*";
                      }
                 }
             }
